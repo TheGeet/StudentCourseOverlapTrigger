@@ -1,0 +1,35 @@
+DELIMITER $$
+CREATE TRIGGER StudentCourseOverlap 
+BEFORE INSERT ON StudentCourses
+FOR EACH ROW
+BEGIN
+IF(
+SELECT COUNT(SELECT Year, Semester, Hour, DayID 
+FROM  CourseOfferings co
+INNER JOIN CourseDaysOfWeek cd ON cd.CourseOfferingID = co.CourseOfferingID 
+WHERE co.CourseOfferingID = new.CourseOfferingID 
+UNION 
+SELECT year, semester, hour, DayID 
+FROM CourseOfferings co 
+INNER JOIN CourseDaysOfWeek cd ON cd.CourseOfferingID = co.CourseOfferingID 
+WHERE co.CourseOfferingID IN (SELECT CourseOfferingID FROM StudentCourses WHERE StudentID = new.StudentID)
+) AS newCourseOfferings
+) < (
+SELECT
+(SELECT COUNT(*) 
+FROM courseofferings
+WHERE CourseOfferingID = new.CourseOfferingID
+) + (
+SELECT COUNT(*) 
+FROM CourseOfferings 
+WHERE CourseOfferingID IN (SELECT CourseOfferingID FROM StudentCourses WHERE StudentID = new.StudentID)
+)
+)
+THEN
+     BEGIN
+     SIGNAL SQLSTATE '99999' SET MESSAGE_TEXT = 'Invalid schedule';
+     END;
+     END IF;
+END;
+END$$
+DELIMITER ;
